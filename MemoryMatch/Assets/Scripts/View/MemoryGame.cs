@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text;
 using MemoryMatch.Core;
 using UnityEngine;
@@ -114,11 +115,116 @@ namespace MemoryMatch.View
             return false;
         }
 
+        // ---- Mouse input (FR-024..027) -------------------------------------------------------
+        // Position and buttons are read from every Input System mouse (the physical one, and the
+        // virtual one unity-cli adds) and from the legacy Input Manager. Hover only moves the
+        // cursor when the mouse actually moved, so the keyboard keeps working after the mouse rests.
+        readonly Dictionary<int, Vector2> _mouseSeen = new Dictionary<int, Vector2>();
+        Vector2 _mousePos;
+        bool _mouseMoved;
+        bool _leftNow, _leftWas, _rightNow, _rightWas;
+        bool _leftPressedEvent, _rightPressedEvent;   // press seen as an event (catches very short clicks)
+
+        void PollMouse()
+        {
+            _mouseMoved = false;
+            _leftNow = false;
+            _rightNow = false;
+            _leftPressedEvent = false;
+            _rightPressedEvent = false;
+            foreach (InputDevice device in InputSystem.devices)
+            {
+                if (device is Mouse mouse)
+                {
+                    ObserveMouse(mouse.deviceId, mouse.position.ReadValue());
+                    _leftNow |= mouse.leftButton.isPressed;
+                    _rightNow |= mouse.rightButton.isPressed;
+                    _leftPressedEvent |= mouse.leftButton.wasPressedThisFrame;
+                    _rightPressedEvent |= mouse.rightButton.wasPressedThisFrame;
+                }
+            }
+#if ENABLE_LEGACY_INPUT_MANAGER
+            ObserveMouse(-1, Input.mousePosition);
+            _leftNow |= Input.GetMouseButton(0);
+            _rightNow |= Input.GetMouseButton(1);
+            _leftPressedEvent |= Input.GetMouseButtonDown(0);
+            _rightPressedEvent |= Input.GetMouseButtonDown(1);
+#endif
+        }
+
+        void ObserveMouse(int sourceId, Vector2 position)
+        {
+            if (!_mouseSeen.TryGetValue(sourceId, out Vector2 previous))
+            {
+                _mouseSeen[sourceId] = position;
+                _mousePos = position;
+                return;
+            }
+            if ((position - previous).sqrMagnitude > 0.25f)
+            {
+                _mousePos = position;
+                _mouseMoved = true;
+            }
+            _mouseSeen[sourceId] = position;
+        }
+
+        int CardAt(Vector2 screenPoint)
+        {
+            if (Cards == null) return -1;
+            for (int i = 0; i < Cards.Length; i++)
+            {
+                var rect = Cards[i].transform as RectTransform;
+                if (rect != null && RectTransformUtility.RectangleContainsScreenPoint(rect, screenPoint, null)) return i;
+            }
+            return -1;
+        }
+
+        void HandleMouse()
+        {
+            bool leftDown = (_leftNow && !_leftWas) || _leftPressedEvent;
+            bool rightDown = (_rightNow && !_rightWas) || _rightPressedEvent;
+
+            if (_engine == null)
+            {
+                HandleSetupMouse(leftDown, rightDown);
+                return;
+            }
+            if (_engine.Phase == GamePhase.Finished) return;
+
+            int hit = CardAt(_mousePos);
+            if (hit < 0) return;
+            if (_mouseMoved || leftDown) CursorIndex = hit;
+            if (leftDown) _engine.Pick(hit);
+        }
+
+        void HandleSetupMouse(bool leftDown, bool rightDown)
+        {
+            if (Menu == null) return;
+            int row = Menu.RowAt(_mousePos);
+            if (row < 0) return;
+            if (_mouseMoved) _menuRow = row;
+
+            if (row == SetupMenu.StartRow)
+            {
+                if (leftDown) Begin();
+                return;
+            }
+            int step = leftDown ? 1 : (rightDown ? -1 : 0);
+            if (step == 0) return;
+            _menuRow = row;
+            if (row == 0) PlayerKind0 = SetupMenu.Cycle(PlayerKind0, step);
+            else PlayerKind1 = SetupMenu.Cycle(PlayerKind1, step);
+        }
+
         void Update()
         {
             PollKeys();
+            PollMouse();
             HandleInput();
+            HandleMouse();
             RememberKeys();
+            _leftWas = _leftNow;
+            _rightWas = _rightNow;
             if (_engine != null) _engine.Tick(Time.deltaTime);
             Refresh();
         }
@@ -151,7 +257,7 @@ namespace MemoryMatch.View
             int step = 0;
             if (Down(GameKey.Right)) step = 1;
             if (Down(GameKey.Left)) step = -1;
-            if (step != 0)
+            if (step != 0 && _menuRow != SetupMenu.StartRow)
             {
                 if (_menuRow == 0) PlayerKind0 = SetupMenu.Cycle(PlayerKind0, step);
                 else PlayerKind1 = SetupMenu.Cycle(PlayerKind1, step);

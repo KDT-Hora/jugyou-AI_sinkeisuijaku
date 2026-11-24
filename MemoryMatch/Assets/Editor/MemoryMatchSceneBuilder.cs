@@ -73,9 +73,11 @@ namespace MemoryMatch.EditorTools
             bg.color = new Color(0.05f, 0.06f, 0.10f, 0.96f);
             var menu = setupGo.gameObject.AddComponent<SetupMenu>();
             menu.Panel = setupGo.gameObject;
-            var body = NewText("Body", setupGo, font, 32, TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero);
-            Stretch(body.rectTransform);
-            menu.Body = body;
+            menu.Title = NewMenuText("Title", setupGo, font, 56, 0f, 200f, 800f, 80f);
+            menu.PlayerOneRow = NewMenuText("PlayerOneRow", setupGo, font, 36, 0f, 70f, 700f, 60f);
+            menu.PlayerTwoRow = NewMenuText("PlayerTwoRow", setupGo, font, 36, 0f, -10f, 700f, 60f);
+            menu.StartButton = NewMenuText("StartButton", setupGo, font, 40, 0f, -110f, 400f, 70f);
+            menu.Hint = NewMenuText("Hint", setupGo, font, 22, 0f, -230f, 1100f, 80f);
 
             var game = new GameObject("Game", typeof(MemoryGame));
             var mg = game.GetComponent<MemoryGame>();
@@ -130,6 +132,25 @@ namespace MemoryMatch.EditorTools
             view.Face = face;
             view.Label = label;
             return view;
+        }
+
+        // Centered text for the setup screen (anchor = screen centre).
+        static Text NewMenuText(string name, RectTransform parent, Font font, int size, float x, float y, float width, float height)
+        {
+            var rt = NewRect(name, parent);
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = new Vector2(x, y);
+            rt.sizeDelta = new Vector2(width, height);
+            var t = rt.gameObject.AddComponent<Text>();
+            t.font = font;
+            t.fontSize = size;
+            t.alignment = TextAnchor.MiddleCenter;
+            t.color = Color.white;
+            t.horizontalOverflow = HorizontalWrapMode.Overflow;
+            t.verticalOverflow = VerticalWrapMode.Overflow;
+            t.raycastTarget = false;
+            return t;
         }
 
         static Text NewText(string name, RectTransform parent, Font font, int size, TextAnchor anchor, Vector2 pos, Vector2 sizeDelta)

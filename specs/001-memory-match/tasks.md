@@ -107,6 +107,17 @@
 - [x] T048 [US4] 回帰確認（SC-010）：M1〜M6 のシナリオ（A と B）を制限時間つきで再実行し、すべて成立することを `verification.md` に記録する。M1 は残り時間の初期値、M5 は終了の理由、M6 は残り時間の初期化を確認する
 - [x] T049 [US4] 終了処理：入力を解除し、Stop し、シーンとプロジェクトを保存する
 
+## Phase 11: User Story 5 - マウスで操作する (P3)（追加機能）
+
+**Goal**: カードの選択・めくり、設定画面をマウスでも操作できる。ルール（Core）は変えない。
+**Independent Test**: AS US5-1〜6 を PlayMode で、unity-cli の `input_mouse`（絶対座標の移動とクリック）で確認する。
+
+- [x] T050 [US5] FR-024・FR-025・FR-027・AS US5-1〜3・US5-6：`MemoryGame` に、画面座標のマウス位置から各 Card の RectTransform を判定する処理を足す。ホバーで `CursorIndex` が移り、左クリックの立ち上がりで `Pick(CursorIndex)` を呼ぶ。入力源は Input System の全マウス＋旧 Input。ルール判断は書かない。`Assets/Scripts/View/MemoryGame.cs`
+- [x] T051 [US5] FR-026・AS US5-4・US5-5：設定画面を、プレイヤー1の行、プレイヤー2の行、STARTの3つの Text に分け、ホバーで選択行が移り、左クリックで次へ、右クリックで前へ切り替わり、STARTのクリックで開始する。`Assets/Scripts/View/SetupMenu.cs`、`Assets/Scripts/View/MemoryGame.cs`、`Assets/Editor/MemoryMatchSceneBuilder.cs`
+- [x] T052 [US5] Edit Mode でシーンを再構築し（unity-cli のメニュー実行）、Hierarchy を再取得して確認する。保存する。コンパイルエラー0と、EditMode 93 件の合格を確認する
+- [x] T053 [US5] PlayMode：AS US5-1〜6 を `input_mouse` で実証する。状態と Game 画像を `verification.md` に記録する。SC-012：シナリオ A と B（キーボード）も再実行して回帰を確認する
+- [x] T054 [US5] README の操作表にマウスを足す。終了処理（入力解除、Stop、保存）をして、コミットする
+
 ## Dependencies & Execution Order
 
 - Phase 1 → 2 → （3, 4, 5 は Core。US1 を先に。US2 は T006〜T010 の `MatchEngine` に依存。US3 も同様）→ 6 → 7 → 8 → 9
