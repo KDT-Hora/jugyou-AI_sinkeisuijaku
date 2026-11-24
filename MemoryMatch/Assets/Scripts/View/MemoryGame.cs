@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Text;
 using MemoryMatch.Core;
 using UnityEngine;
@@ -54,41 +53,81 @@ namespace MemoryMatch.View
             Refresh();
         }
 
-        // Edge detection by polling isPressed. This also works for devices that do not
-        // report wasPressedThisFrame (for example the virtual keyboard used by unity-cli).
-        readonly Dictionary<UnityEngine.InputSystem.Controls.KeyControl, bool> _previous =
-            new Dictionary<UnityEngine.InputSystem.Controls.KeyControl, bool>();
+        // ---- Keyboard input --------------------------------------------------------------
+        // A key counts as pressed if ANY source reports it:
+        //   - every keyboard device of the Input System (the physical one, and the virtual one that
+        //     unity-cli adds), and
+        //   - the legacy Input Manager (OS keyboard), when it is enabled ("Both" in Player Settings).
+        // Edge detection is done here by polling, because some devices (unity-cli's virtual keyboard)
+        // do not report wasPressedThisFrame.
+        enum GameKey { Left, Right, Up, Down, Space, Enter, R }
 
-        bool Down(UnityEngine.InputSystem.Controls.KeyControl key)
+        const int KeyCount = 7;
+        readonly bool[] _keyNow = new bool[KeyCount];
+        readonly bool[] _keyWas = new bool[KeyCount];
+
+        bool Down(GameKey key) => _keyNow[(int)key] && !_keyWas[(int)key];
+
+        void PollKeys()
         {
-            _previous.TryGetValue(key, out bool was);
-            return key.isPressed && !was;
+            for (int i = 0; i < KeyCount; i++) _keyNow[i] = IsHeld((GameKey)i);
         }
 
-        void RememberKeys(Keyboard kb)
+        void RememberKeys()
         {
-            var keys = new[] { kb.leftArrowKey, kb.rightArrowKey, kb.upArrowKey, kb.downArrowKey,
-                               kb.spaceKey, kb.enterKey, kb.rKey };
-            foreach (var k in keys) _previous[k] = k.isPressed;
+            for (int i = 0; i < KeyCount; i++) _keyWas[i] = _keyNow[i];
+        }
+
+        static bool IsHeld(GameKey key)
+        {
+            foreach (InputDevice device in InputSystem.devices)
+            {
+                if (device is Keyboard kb && IsHeld(kb, key)) return true;
+            }
+#if ENABLE_LEGACY_INPUT_MANAGER
+            switch (key)
+            {
+                case GameKey.Left: return Input.GetKey(KeyCode.LeftArrow);
+                case GameKey.Right: return Input.GetKey(KeyCode.RightArrow);
+                case GameKey.Up: return Input.GetKey(KeyCode.UpArrow);
+                case GameKey.Down: return Input.GetKey(KeyCode.DownArrow);
+                case GameKey.Space: return Input.GetKey(KeyCode.Space);
+                case GameKey.Enter: return Input.GetKey(KeyCode.Return) || Input.GetKey(KeyCode.KeypadEnter);
+                case GameKey.R: return Input.GetKey(KeyCode.R);
+            }
+#endif
+            return false;
+        }
+
+        static bool IsHeld(Keyboard kb, GameKey key)
+        {
+            switch (key)
+            {
+                case GameKey.Left: return kb.leftArrowKey.isPressed;
+                case GameKey.Right: return kb.rightArrowKey.isPressed;
+                case GameKey.Up: return kb.upArrowKey.isPressed;
+                case GameKey.Down: return kb.downArrowKey.isPressed;
+                case GameKey.Space: return kb.spaceKey.isPressed;
+                case GameKey.Enter: return kb.enterKey.isPressed || kb.numpadEnterKey.isPressed;
+                case GameKey.R: return kb.rKey.isPressed;
+            }
+            return false;
         }
 
         void Update()
         {
-            Keyboard kb = Keyboard.current;
-            if (kb != null)
-            {
-                HandleInput(kb);
-                RememberKeys(kb);
-            }
+            PollKeys();
+            HandleInput();
+            RememberKeys();
             if (_engine != null) _engine.Tick(Time.deltaTime);
             Refresh();
         }
 
-        void HandleInput(Keyboard kb)
+        void HandleInput()
         {
-            if (_engine == null) { HandleSetupInput(kb); return; }
+            if (_engine == null) { HandleSetupInput(); return; }
 
-            if (Down(kb.rKey))
+            if (Down(GameKey.R))
             {
                 _engine.Restart();
                 CursorIndex = 0;
@@ -97,28 +136,28 @@ namespace MemoryMatch.View
 
             if (_engine.Phase == GamePhase.Finished) return;
 
-            if (Down(kb.leftArrowKey)) CursorIndex = CursorGrid.Move(CursorIndex, Direction.Left);
-            if (Down(kb.rightArrowKey)) CursorIndex = CursorGrid.Move(CursorIndex, Direction.Right);
-            if (Down(kb.upArrowKey)) CursorIndex = CursorGrid.Move(CursorIndex, Direction.Up);
-            if (Down(kb.downArrowKey)) CursorIndex = CursorGrid.Move(CursorIndex, Direction.Down);
-            if (Down(kb.spaceKey)) _engine.Pick(CursorIndex);
+            if (Down(GameKey.Left)) CursorIndex = CursorGrid.Move(CursorIndex, Direction.Left);
+            if (Down(GameKey.Right)) CursorIndex = CursorGrid.Move(CursorIndex, Direction.Right);
+            if (Down(GameKey.Up)) CursorIndex = CursorGrid.Move(CursorIndex, Direction.Up);
+            if (Down(GameKey.Down)) CursorIndex = CursorGrid.Move(CursorIndex, Direction.Down);
+            if (Down(GameKey.Space)) _engine.Pick(CursorIndex);
         }
 
-        void HandleSetupInput(Keyboard kb)
+        void HandleSetupInput()
         {
-            if (Down(kb.upArrowKey)) _menuRow = 0;
-            if (Down(kb.downArrowKey)) _menuRow = 1;
+            if (Down(GameKey.Up)) _menuRow = 0;
+            if (Down(GameKey.Down)) _menuRow = 1;
 
             int step = 0;
-            if (Down(kb.rightArrowKey)) step = 1;
-            if (Down(kb.leftArrowKey)) step = -1;
+            if (Down(GameKey.Right)) step = 1;
+            if (Down(GameKey.Left)) step = -1;
             if (step != 0)
             {
                 if (_menuRow == 0) PlayerKind0 = SetupMenu.Cycle(PlayerKind0, step);
                 else PlayerKind1 = SetupMenu.Cycle(PlayerKind1, step);
             }
 
-            if (Down(kb.enterKey) || Down(kb.spaceKey)) Begin();
+            if (Down(GameKey.Enter) || Down(GameKey.Space)) Begin();
         }
 
         // Starts the game with the current setup values.
