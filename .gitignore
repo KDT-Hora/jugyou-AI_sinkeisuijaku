@@ -1,0 +1,30 @@
+# Unity
+MemoryMatch/[Ll]ibrary/
+MemoryMatch/[Tt]emp/
+MemoryMatch/[Oo]bj/
+MemoryMatch/[Bb]uild/
+MemoryMatch/[Bb]uilds/
+MemoryMatch/[Ll]ogs/
+MemoryMatch/[Uu]ser[Ss]ettings/
+MemoryMatch/.unity/
+MemoryMatch/test-results.xml
+MemoryMatch/*.csproj
+MemoryMatch/*.sln
+MemoryMatch/.vs/
+MemoryMatch/.idea/
+MemoryMatch/.vscode/
+MemoryMatch/*.log
+
+# Credentials and personal settings
+.env*
+*.key
+*.pem
+.claude/settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Workshop material (not part of the deliverable)
+docs/
+*.slnx
